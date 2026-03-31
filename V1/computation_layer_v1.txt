@@ -1,0 +1,78 @@
+Financial Narrative Analyzer
+Computation Layer v1
+
+Purpose:
+Define the deterministic calculations performed on raw financial inputs before interpretation and narrative generation.
+
+1. Required Inputs
+- revenue_current
+- revenue_prior
+- gross_profit_current
+- gross_profit_prior
+- operating_expense_current
+- operating_expense_prior
+- operating_income_current
+- operating_income_prior
+
+2. Core Change Calculations
+- revenue_change_abs = revenue_current - revenue_prior
+- gross_profit_change_abs = gross_profit_current - gross_profit_prior
+- operating_expense_change_abs = operating_expense_current - operating_expense_prior
+- operating_income_change_abs = operating_income_current - operating_income_prior
+
+3. Growth Rate Calculations
+- revenue_change_pct = revenue_change_abs / revenue_prior
+- gross_profit_change_pct = gross_profit_change_abs / gross_profit_prior
+- operating_expense_change_pct = operating_expense_change_abs / operating_expense_prior
+- operating_income_change_pct = operating_income_change_abs / operating_income_prior
+
+4. Margin Calculations
+- gross_margin_current = gross_profit_current / revenue_current
+- gross_margin_prior = gross_profit_prior / revenue_prior
+- gross_margin_change = gross_margin_current - gross_margin_prior
+
+- operating_margin_current = operating_income_current / revenue_current
+- operating_margin_prior = operating_income_prior / revenue_prior
+- operating_margin_change = operating_margin_current - operating_margin_prior
+
+5. Efficiency / Cost Structure Calculations
+- operating_expense_ratio_current = operating_expense_current / revenue_current
+- operating_expense_ratio_prior = operating_expense_prior / revenue_prior
+- operating_expense_ratio_change = operating_expense_ratio_current - operating_expense_ratio_prior
+
+6. Leverage / Conversion Signals
+- revenue_vs_opex_growth_gap = revenue_change_pct - operating_expense_change_pct
+- revenue_vs_operating_income_growth_gap = revenue_change_pct - operating_income_change_pct
+- gross_profit_vs_revenue_growth_gap = gross_profit_change_pct - revenue_change_pct
+
+7. Calculation Order
+Step 1: Validate required inputs
+Step 2: Compute absolute changes
+Step 3: Compute percentage changes
+Step 4: Compute margins
+Step 5: Compute efficiency ratios
+Step 6: Compute leverage/conversion signals
+Step 7: Return structured computed metrics
+
+8. Edge Case Rules
+- If a prior-period denominator is zero, do not calculate percentage change normally
+- Return a null value or flagged status for undefined percentage metrics
+- If current-period revenue is zero, do not calculate margin ratios normally
+- Prevent divide-by-zero errors
+- Negative values should be preserved and not automatically treated as invalid
+
+9. Validation Rules
+- Required fields must be present
+- Numeric fields must be numeric
+- Missing required inputs should trigger validation error
+- Optional fields should not block calculation
+- Extremely large or unusual values should be allowed, but may be flagged later in interpretation if needed
+
+10. Output
+The computation layer returns a structured metric object containing:
+- absolute changes
+- percentage changes
+- margins
+- efficiency ratios
+- leverage/conversion signals
+- any calculation flags

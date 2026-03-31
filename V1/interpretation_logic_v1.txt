@@ -1,0 +1,89 @@
+Financial Narrative Analyzer
+Interpretation Logic v1
+
+Purpose:
+Define how the system converts computed financial metrics into structured financial signals before narrative generation.
+
+1. Directional Rules
+
+Revenue:
+- Revenue increase = favorable top-line signal
+- Revenue decrease = unfavorable top-line signal
+
+Gross Profit:
+- Gross profit increase = favorable profitability signal
+- Gross profit decrease = unfavorable profitability signal
+
+Operating Expense:
+- Operating expense increase = potential cost pressure signal
+- Operating expense decrease = favorable cost control signal
+
+Operating Income:
+- Operating income increase = favorable bottom-line signal
+- Operating income decrease = unfavorable bottom-line signal
+
+Margins:
+- Gross margin expansion = favorable margin signal
+- Gross margin compression = unfavorable margin signal
+- Operating margin expansion = favorable operating efficiency signal
+- Operating margin compression = unfavorable operating efficiency signal
+
+2. Relative Growth Rules
+
+- If revenue growth rate > operating expense growth rate, flag positive operating leverage
+- If operating expense growth rate > revenue growth rate, flag cost pressure
+- If gross profit growth rate < revenue growth rate, flag possible gross margin pressure
+- If operating income growth rate trails revenue growth materially, flag profitability conversion weakness
+- If operating income growth exceeds revenue growth, flag improving operational efficiency
+
+3. Materiality Rules
+
+- If absolute change is below materiality_threshold_abs, mark as minor
+- If percentage change is below materiality_threshold_pct, mark as minor
+- Minor changes should not become headline narrative points unless no larger changes exist
+- Narrative should prioritize material changes over immaterial fluctuations
+
+4. Signal Ranking Rules
+
+Priority order for narrative emphasis:
+1. Operating income change
+2. Operating margin change
+3. Revenue change
+4. Gross profit change
+5. Operating expense change
+
+- The highest-priority material signals should drive the executive summary
+- Lower-priority signals should support the explanation rather than dominate it
+
+5. Causal Pattern Rules
+
+- Revenue up + operating income up = growth with improved profitability
+- Revenue up + operating income down = growth offset by cost pressure
+- Revenue down + operating income down = broad performance deterioration
+- Revenue down + operating income up = lower revenue with improved cost discipline
+- Revenue up + gross margin down = top-line growth with margin pressure
+- Revenue up + operating expense up faster than revenue = growth with operating cost pressure
+- Revenue flat + operating expense up = profitability erosion from costs
+- Revenue flat + operating expense down = improved efficiency without top-line growth
+
+6. Management Notes Usage
+
+- If management_notes are provided, use them only to support or contextualize detected signals
+- Do not invent causes beyond the provided notes
+- If no management notes are provided, describe patterns without unsupported causal claims
+
+7. Output to Narrative Layer
+
+The interpretation layer should produce:
+- primary headline signal
+- supporting signals
+- favorable vs unfavorable classification
+- material vs minor classification
+- detected causal pattern
+- any permitted contextual explanation from management notes
+
+8. Trend Strength Classification
+
+- If metric_t3 > metric_t2 > metric_t1 → Strengthening trend
+- If metric_t3 < metric_t2 < metric_t1 → Weakening trend
+- Else → Mixed / unstable trend

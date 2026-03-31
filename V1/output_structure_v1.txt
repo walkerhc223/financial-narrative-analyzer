@@ -1,0 +1,39 @@
+Financial Narrative Analyzer
+Output Structure v1
+
+Purpose:
+Define the structure of the narrative output produced by the system.
+
+1. Executive Summary
+- 2 to 4 sentences
+- Summarize overall period performance
+- Emphasize the highest-priority material signal
+- Mention whether profitability improved or worsened
+
+2. Revenue Commentary
+- State current vs prior revenue
+- Include absolute and percentage change
+- Indicate whether change was favorable or unfavorable
+- Briefly note whether revenue was a major driver
+
+3. Gross Profit Commentary
+- State current vs prior gross profit
+- Include absolute and percentage change
+- Mention gross margin expansion or compression if material
+- Interpret whether profitability at the gross level improved or worsened
+
+4. Operating Expense Commentary
+- State current vs prior operating expense
+- Include absolute and percentage change
+- Explain whether expense growth supported or pressured profitability
+- Reference management notes only if provided
+
+5. Operating Income Conclusion
+- State current vs prior operating income
+- Include absolute and percentage change
+- Identify the main reason operating income changed
+- Summarize the core performance story
+
+6. Key Watchout (Optional)
+- Highlight one important caution or monitoring point
+- Only include if supported by the computed signals or management notes

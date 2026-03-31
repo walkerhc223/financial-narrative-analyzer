@@ -1,0 +1,11 @@
+Financial Narrative Analyzer — V1 Definition
+
+The Financial Narrative Analyzer is a tool that converts structured period-over-period income statement metrics into standardized, management-ready performance narratives. It reduces the manual effort and variability involved in interpreting financial results and communicating business performance.
+
+Primary users are finance professionals preparing financial commentary, while secondary users are non-finance managers consuming performance explanations.
+
+Version 1 analyzes numeric inputs for revenue, gross profit, operating expenses, and operating income across two reporting periods.
+
+The system produces concise, structured narratives explaining performance drivers, directional trends, and key profitability impacts.
+
+Version 1 does not include forecasting, valuation, benchmarking, strategic analysis, multi-period trend modeling, balance sheet or cash flow analysis, or unstructured financial document interpretation.

@@ -1,0 +1,44 @@
+What specific problem does the Financial Narrative Analyzer solve?
+
+The Financial Narrative Analyzer reduces the time and cognitive effort required for finance professionals to translate raw financial performance data into structured, management-ready explanations of business results.
+
+OR
+
+The system converts period-over-period financial changes into a standardized written performance narrative, reducing manual analysis effort and variability in financial communication.
+
+Why this is stronger:
+
+• Defines time + cognitive load as the pain
+• Defines translation (numbers → explanation) as the job
+• Defines standardization as value
+• Implies repeatable workflow automation
+
+Who is the user?
+Primary user: Finance managers and analysts responsible for preparing performance commentary.
+
+Secondary user: Non-finance management consuming financial performance explanations.
+
+This matters because:
+
+• Primary user defines input workflow
+• Secondary user defines output readability
+
+This distinction will later affect tone, structure, and complexity.
+
+
+
+What kind of financial input will it analyze first?
+The system analyzes structured income statement metrics for a current reporting period and a comparison period, focusing on revenue, gross profit, operating expenses, and operating income.
+
+Inputs consist of numeric financial values, not full financial statements
+
+What kind of narrative output should it produce?
+The system produces a concise, structured, management-style narrative that explains key financial performance drivers, identifies favorable and unfavorable trends, and highlights primary causes of period-over-period changes.
+
+What is explicitly out of scope for version 1?
+Version 1 does not perform forecasting, valuation, external benchmarking, strategic analysis, multi-period trend modeling, balance sheet or cash flow interpretation, or unstructured document parsing.
+
+
+
+
+

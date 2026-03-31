@@ -1,0 +1,308 @@
+Financial Narrative Analyzer
+Pseudo Code v1
+
+Purpose:
+Define the high-level implementation logic for transforming raw financial inputs into a structured, management-ready financial narrative.
+
+--------------------------------------------------
+1. Main System Flow
+--------------------------------------------------
+
+function financial_narrative_analyzer(input_data):
+
+    validated_data = validate_inputs(input_data)
+
+    computed_metrics = compute_metrics(validated_data)
+
+    interpretation = interpret_metrics(
+        computed_metrics,
+        validated_data.management_notes,
+        validated_data.materiality_threshold_pct,
+        validated_data.materiality_threshold_abs
+    )
+
+    narrative_sections = generate_narrative_sections(
+        validated_data,
+        computed_metrics,
+        interpretation
+    )
+
+    final_output = assemble_final_output(narrative_sections)
+
+    return final_output
+
+--------------------------------------------------
+2. Input Validation
+--------------------------------------------------
+
+function validate_inputs(input_data):
+
+    required_fields = [
+        company_name,
+        reporting_period,
+        comparison_period,
+        revenue_current,
+        revenue_prior,
+        gross_profit_current,
+        gross_profit_prior,
+        operating_expense_current,
+        operating_expense_prior,
+        operating_income_current,
+        operating_income_prior
+    ]
+
+    for each field in required_fields:
+        if field is missing:
+            raise validation error
+
+    numeric_fields = [
+        revenue_current,
+        revenue_prior,
+        gross_profit_current,
+        gross_profit_prior,
+        operating_expense_current,
+        operating_expense_prior,
+        operating_income_current,
+        operating_income_prior
+    ]
+
+    for each field in numeric_fields:
+        if field is not numeric:
+            raise validation error
+
+    if materiality_threshold_pct is missing:
+        set default materiality_threshold_pct
+
+    if materiality_threshold_abs is missing:
+        set default materiality_threshold_abs
+
+    return validated_input_data
+
+--------------------------------------------------
+3. Computation Layer
+--------------------------------------------------
+
+function compute_metrics(data):
+
+    metrics = empty object
+
+    metrics.revenue_change_abs = data.revenue_current - data.revenue_prior
+    metrics.gross_profit_change_abs = data.gross_profit_current - data.gross_profit_prior
+    metrics.operating_expense_change_abs = data.operating_expense_current - data.operating_expense_prior
+    metrics.operating_income_change_abs = data.operating_income_current - data.operating_income_prior
+
+    metrics.revenue_change_pct = safe_divide(metrics.revenue_change_abs, data.revenue_prior)
+    metrics.gross_profit_change_pct = safe_divide(metrics.gross_profit_change_abs, data.gross_profit_prior)
+    metrics.operating_expense_change_pct = safe_divide(metrics.operating_expense_change_abs, data.operating_expense_prior)
+    metrics.operating_income_change_pct = safe_divide(metrics.operating_income_change_abs, data.operating_income_prior)
+
+    metrics.gross_margin_current = safe_divide(data.gross_profit_current, data.revenue_current)
+    metrics.gross_margin_prior = safe_divide(data.gross_profit_prior, data.revenue_prior)
+    metrics.gross_margin_change = metrics.gross_margin_current - metrics.gross_margin_prior
+
+    metrics.operating_margin_current = safe_divide(data.operating_income_current, data.revenue_current)
+    metrics.operating_margin_prior = safe_divide(data.operating_income_prior, data.revenue_prior)
+    metrics.operating_margin_change = metrics.operating_margin_current - metrics.operating_margin_prior
+
+    metrics.operating_expense_ratio_current = safe_divide(data.operating_expense_current, data.revenue_current)
+    metrics.operating_expense_ratio_prior = safe_divide(data.operating_expense_prior, data.revenue_prior)
+    metrics.operating_expense_ratio_change = metrics.operating_expense_ratio_current - metrics.operating_expense_ratio_prior
+
+    metrics.revenue_vs_opex_growth_gap = metrics.revenue_change_pct - metrics.operating_expense_change_pct
+    metrics.revenue_vs_operating_income_growth_gap = metrics.revenue_change_pct - metrics.operating_income_change_pct
+    metrics.gross_profit_vs_revenue_growth_gap = metrics.gross_profit_change_pct - metrics.revenue_change_pct
+
+    return metrics
+
+--------------------------------------------------
+4. Safe Division Utility
+--------------------------------------------------
+
+function safe_divide(numerator, denominator):
+
+    if denominator is zero:
+        return null
+
+    return numerator / denominator
+
+--------------------------------------------------
+5. Interpretation Layer
+--------------------------------------------------
+
+function interpret_metrics(metrics, management_notes, materiality_threshold_pct, materiality_threshold_abs):
+
+    interpretation = empty object
+
+    interpretation.favorable_signals = []
+    interpretation.unfavorable_signals = []
+    interpretation.material_signals = []
+    interpretation.supporting_signals = []
+
+    apply_directional_rules(metrics, interpretation)
+    apply_relative_growth_rules(metrics, interpretation)
+    apply_materiality_rules(metrics, interpretation, materiality_threshold_pct, materiality_threshold_abs)
+    apply_causal_pattern_rules(metrics, interpretation)
+
+    interpretation.primary_headline_signal = determine_primary_headline_signal(interpretation, metrics)
+
+    if management_notes exists:
+        interpretation.management_context_usage = validate_management_note_usage(management_notes, interpretation)
+    else:
+        interpretation.management_context_usage = null
+
+    return interpretation
+
+--------------------------------------------------
+6. Directional Rules
+--------------------------------------------------
+
+function apply_directional_rules(metrics, interpretation):
+
+    if metrics.revenue_change_abs > 0:
+        add "Revenue increase" to favorable_signals
+    else if metrics.revenue_change_abs < 0:
+        add "Revenue decrease" to unfavorable_signals
+
+    if metrics.gross_profit_change_abs > 0:
+        add "Gross profit increase" to favorable_signals
+    else if metrics.gross_profit_change_abs < 0:
+        add "Gross profit decrease" to unfavorable_signals
+
+    if metrics.operating_expense_change_abs > 0:
+        add "Operating expense increase" to unfavorable_signals
+    else if metrics.operating_expense_change_abs < 0:
+        add "Operating expense decrease" to favorable_signals
+
+    if metrics.operating_income_change_abs > 0:
+        add "Operating income increase" to favorable_signals
+    else if metrics.operating_income_change_abs < 0:
+        add "Operating income decrease" to unfavorable_signals
+
+    if metrics.gross_margin_change > 0:
+        add "Gross margin expansion" to favorable_signals
+    else if metrics.gross_margin_change < 0:
+        add "Gross margin compression" to unfavorable_signals
+
+    if metrics.operating_margin_change > 0:
+        add "Operating margin expansion" to favorable_signals
+    else if metrics.operating_margin_change < 0:
+        add "Operating margin compression" to unfavorable_signals
+
+--------------------------------------------------
+7. Relative Growth Rules
+--------------------------------------------------
+
+function apply_relative_growth_rules(metrics, interpretation):
+
+    if metrics.revenue_change_pct is not null and metrics.operating_expense_change_pct is not null:
+        if metrics.revenue_change_pct > metrics.operating_expense_change_pct:
+            add "Positive operating leverage" to supporting_signals
+        else if metrics.operating_expense_change_pct > metrics.revenue_change_pct:
+            add "Cost pressure from expense growth outpacing revenue" to supporting_signals
+
+    if metrics.gross_profit_change_pct is not null and metrics.revenue_change_pct is not null:
+        if metrics.gross_profit_change_pct < metrics.revenue_change_pct:
+            add "Gross profit growth lagged revenue growth" to supporting_signals
+
+    if metrics.operating_income_change_pct is not null and metrics.revenue_change_pct is not null:
+        if metrics.operating_income_change_pct < metrics.revenue_change_pct:
+            add "Weak profitability conversion" to supporting_signals
+        else if metrics.operating_income_change_pct > metrics.revenue_change_pct:
+            add "Improving operational efficiency" to supporting_signals
+
+--------------------------------------------------
+8. Materiality Rules
+--------------------------------------------------
+
+function apply_materiality_rules(metrics, interpretation, threshold_pct, threshold_abs):
+
+    check_metric_materiality("Revenue", metrics.revenue_change_abs, metrics.revenue_change_pct)
+    check_metric_materiality("Gross profit", metrics.gross_profit_change_abs, metrics.gross_profit_change_pct)
+    check_metric_materiality("Operating expense", metrics.operating_expense_change_abs, metrics.operating_expense_change_pct)
+    check_metric_materiality("Operating income", metrics.operating_income_change_abs, metrics.operating_income_change_pct)
+
+function check_metric_materiality(metric_name, abs_change, pct_change):
+
+    if abs_change is null:
+        return
+
+    if absolute value of abs_change >= threshold_abs:
+        add metric_name to material_signals
+        return
+
+    if pct_change is not null and absolute value of pct_change >= threshold_pct:
+        add metric_name to material_signals
+
+--------------------------------------------------
+9. Causal Pattern Rules
+--------------------------------------------------
+
+function apply_causal_pattern_rules(metrics, interpretation):
+
+    if metrics.revenue_change_abs > 0 and metrics.operating_income_change_abs > 0:
+        interpretation.causal_pattern = "Growth with improved profitability"
+
+    else if metrics.revenue_change_abs > 0 and metrics.operating_income_change_abs < 0:
+        interpretation.causal_pattern = "Growth offset by cost pressure"
+
+    else if metrics.revenue_change_abs < 0 and metrics.operating_income_change_abs < 0:
+        interpretation.causal_pattern = "Broad performance deterioration"
+
+    else if metrics.revenue_change_abs < 0 and metrics.operating_income_change_abs > 0:
+        interpretation.causal_pattern = "Lower revenue with improved cost discipline"
+
+    if metrics.revenue_change_abs > 0 and metrics.gross_margin_change < 0:
+        append " with gross margin pressure" to causal_pattern if not already included
+
+--------------------------------------------------
+10. Primary Headline Selection
+--------------------------------------------------
+
+function determine_primary_headline_signal(interpretation, metrics):
+
+    if "Operating income" is in interpretation.material_signals:
+        if metrics.operating_income_change_abs > 0:
+            return "Profitability improved during the period"
+        else if metrics.operating_income_change_abs < 0:
+            return "Profitability weakened during the period"
+
+    if "Revenue" is in interpretation.material_signals:
+        if metrics.revenue_change_abs > 0:
+            return "Revenue growth was the main driver of performance"
+        else if metrics.revenue_change_abs < 0:
+            return "Revenue decline was the main driver of performance"
+
+    return "Performance was mixed during the period"
+
+--------------------------------------------------
+11. Narrative Generation Layer
+--------------------------------------------------
+
+function generate_narrative_sections(data, metrics, interpretation):
+
+    sections = empty object
+
+    sections.executive_summary = generate_executive_summary(data, metrics, interpretation)
+    sections.revenue_commentary = generate_revenue_commentary(data, metrics, interpretation)
+    sections.gross_profit_commentary = generate_gross_profit_commentary(data, metrics, interpretation)
+    sections.operating_expense_commentary = generate_operating_expense_commentary(data, metrics, interpretation)
+    sections.operating_income_conclusion = generate_operating_income_conclusion(data, metrics, interpretation)
+    sections.key_watchout = generate_key_watchout(metrics, interpretation)
+
+    return sections
+
+--------------------------------------------------
+12. Final Assembly
+--------------------------------------------------
+
+function assemble_final_output(sections):
+
+    final_output = format as structured report with:
+        Executive Summary
+        Revenue Commentary
+        Gross Profit Commentary
+        Operating Expense Commentary
+        Operating Income Conclusion
+        Key Watchout (if present)
+
+    return final_output
