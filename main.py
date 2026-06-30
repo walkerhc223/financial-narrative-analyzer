@@ -10,10 +10,10 @@ Goal:
 - print the final report
 """
 
-from computation_engine import compute_metrics
-from interpretation_engine import interpret_metrics
-from narrative_generator import generate_narrative_sections
-from report_assembler import assemble_report
+from computation import compute_metrics
+from interpretation import interpret_metrics
+from narrative import generate_narrative_sections
+from assembly import assemble_report
 
 
 def main():
