@@ -1,0 +1,28 @@
+accounts:
+
+  Revenue:
+    significant: true
+    favorable_when: increase
+    min_abs_threshold: 1000
+    pct_threshold: 0.05
+    flag_proximity: 0.5
+    category: income
+    interpretation_hint: "Top-line growth driver"
+
+  COGS:
+    significant: true
+    favorable_when: decrease
+    min_abs_threshold: 1000
+    pct_threshold: 0.05
+    flag_proximity: 0.5
+    category: expense
+    interpretation_hint: "Direct cost impacting margin"
+
+  G&A:
+    significant: false
+    favorable_when: depends
+    min_abs_threshold: 5000
+    pct_threshold: 0.10
+    flag_proximity: 0.8
+    category: opex
+    interpretation_hint: "Administrative overhead base"
