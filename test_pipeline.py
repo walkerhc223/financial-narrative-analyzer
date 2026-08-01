@@ -86,4 +86,26 @@ def test_zero_prior_revenue_returns_none():
     assert result["revenue_vs_operating_income_growth_gap"] is None
     assert result["gross_profit_vs_revenue_growth_gap"] is None
 
+def test_breakeven_prior_operating_income():
+    data = {**sample_data, "operating_income_prior": 0}
+    result = compute_metrics(data)
+
+    # Subtraction is unaffected by the zero prior
+    assert result["operating_income_change_abs"] == 150_000
+
+    # Growth from a zero base is undefined, not zero
+    assert result["operating_income_change_pct"] is None
+
+    # Zero is the numerator here, so the division is valid:
+    # the company genuinely broke even at a 0.0% operating margin
+    assert result["operating_margin_prior"] == 0.0
+    assert round(result["operating_margin_change"], 4) == 0.1579
+
+    # None propagates only to the gap that depends on it
+    assert result["revenue_vs_operating_income_growth_gap"] is None
+
+    # ...and stops there: this gap never touches operating income
+    assert round(result["revenue_vs_opex_growth_gap"], 4) == 0.0971
+    
+    
     
