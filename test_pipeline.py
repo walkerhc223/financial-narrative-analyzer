@@ -106,6 +106,44 @@ def test_breakeven_prior_operating_income():
 
     # ...and stops there: this gap never touches operating income
     assert round(result["revenue_vs_opex_growth_gap"], 4) == 0.0971
-    
-    
-    
+
+
+def test_zero_prior_revenue_isolates_gap_metrics():
+    data = {**sample_data, "revenue_prior": 0}
+    result = compute_metrics(data)
+    assert result["revenue_change_pct"] is None
+    assert result["operating_expense_change_pct"] is not None
+    assert result["gross_profit_change_pct"] is not None
+    assert result["revenue_vs_opex_growth_gap"] is None
+    assert result["revenue_vs_operating_income_growth_gap"] is None
+    assert result["gross_profit_vs_revenue_growth_gap"] is None
+
+
+def test_zero_prior_opex_isolates_opex_gap():
+    data = {**sample_data, "operating_expense_prior": 0}
+    result = compute_metrics(data)
+    assert result["operating_expense_change_pct"] is None
+    assert result["revenue_vs_opex_growth_gap"] is None
+    assert result["revenue_vs_operating_income_growth_gap"] is not None
+    assert result["gross_profit_vs_revenue_growth_gap"] is not None
+
+
+def test_zero_prior_gross_profit_isolates_gross_profit_gap():
+    data = {**sample_data, "gross_profit_prior": 0}
+    result = compute_metrics(data)
+    assert result["gross_profit_change_pct"] is None
+    assert result["gross_profit_vs_revenue_growth_gap"] is None
+    assert result["revenue_vs_opex_growth_gap"] is not None
+    assert result["revenue_vs_operating_income_growth_gap"] is not None
+
+
+def test_zero_current_revenue_margin_change():
+    data = {**sample_data, "revenue_current": 0}
+    result = compute_metrics(data)
+    assert result["gross_margin_current"] is None
+    assert result["operating_margin_current"] is None
+    assert result["operating_expense_ratio_current"] is None
+    assert result["gross_margin_change"] is None
+    assert result["operating_margin_change"] is None
+    assert result["operating_expense_ratio_change"] is None
+    assert result["revenue_change_pct"] is not None
