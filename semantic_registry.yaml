@@ -18,11 +18,11 @@ accounts:
     category: expense
     interpretation_hint: "Direct cost impacting margin"
 
-  G&A:
+  SG&A:
     significant: false
     favorable_when: depends
     min_abs_threshold: 5000
     pct_threshold: 0.10
     flag_proximity: 0.8
     category: opex
-    interpretation_hint: "Administrative overhead base"
+    interpretation_hint: "Mixed fixed and semi-variable overhead; direction alone is not conclusive"
