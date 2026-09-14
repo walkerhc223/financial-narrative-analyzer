@@ -11,6 +11,7 @@ def interpret_metrics(
     management_notes=None,
     materiality_threshold_pct=0.05,
     materiality_threshold_abs=10_000,
+    variance_results=None,
 ):
     """Interpret computed financial metrics into structured signals."""
     interpretation = {
@@ -18,6 +19,8 @@ def interpret_metrics(
         "unfavorable_signals": [],
         "supporting_signals": [],
         "material_signals": [],
+        "registry_classifications": {},
+        "flagged_accounts": [],
         "causal_pattern": None,
         "primary_headline_signal": None,
         "management_context_usage": None,
@@ -31,6 +34,7 @@ def interpret_metrics(
         materiality_threshold_pct,
         materiality_threshold_abs,
     )
+    apply_registry_classifications(variance_results, interpretation)
     apply_causal_pattern_rules(metrics, interpretation)
     determine_primary_headline_signal(metrics, interpretation)
     apply_management_context(interpretation, management_notes)
@@ -165,6 +169,17 @@ def is_material(abs_change, pct_change, threshold_pct, threshold_abs):
         return True
 
     return False
+
+
+def apply_registry_classifications(variance_results, interpretation):
+    """Record registry-driven per-account classifications from the decision engine."""
+    if not variance_results:
+        return
+
+    for result in variance_results:
+        interpretation["registry_classifications"][result.account] = result.classification
+        if result.classification == "FLAG":
+            interpretation["flagged_accounts"].append(result.account)
 
 
 def apply_causal_pattern_rules(metrics, interpretation):

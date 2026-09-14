@@ -14,6 +14,7 @@ from computation import compute_metrics
 from interpretation import interpret_metrics
 from narrative import generate_narrative_sections
 from assembly import assemble_report
+from decision_engine import analyze_all
 
 
 def main():
@@ -33,15 +34,34 @@ def main():
         "operating_income_prior": 135_000,
     }
 
+    # Registry-level accounts derived from the aggregate inputs so the two
+    # views cannot drift apart. COGS = revenue - gross profit.
+    account_data = {
+        "Revenue": {
+            "current": input_data["revenue_current"],
+            "prior": input_data["revenue_prior"],
+        },
+        "COGS": {
+            "current": input_data["revenue_current"] - input_data["gross_profit_current"],
+            "prior": input_data["revenue_prior"] - input_data["gross_profit_prior"],
+        },
+        "SG&A": {
+            "current": input_data["operating_expense_current"],
+            "prior": input_data["operating_expense_prior"],
+        },
+    }
+
     management_notes = "Labor and software costs increased during the quarter."
 
     metrics = compute_metrics(input_data)
+    variance_results = analyze_all(account_data)
 
     interpretation = interpret_metrics(
         metrics,
         management_notes=management_notes,
         materiality_threshold_pct=0.05,
         materiality_threshold_abs=10_000,
+        variance_results=variance_results,
     )
 
     narrative_sections = generate_narrative_sections(
