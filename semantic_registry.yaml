@@ -1,3 +1,12 @@
+# v2 materiality rule for P&L lines (Revenue, COGS, SG&A).
+# A line is material when BOTH tests pass:
+#   1. |% change vs prior| >= pct_change
+#   2. |$ change| >= prior_revenue_share * prior-period TOTAL revenue
+# TODO: balance sheet lines will use prior_revenue_share applied to prior total assets (not built yet).
+materiality:
+  pct_change: 0.10
+  prior_revenue_share: 0.01
+
 accounts:
 
   Revenue:

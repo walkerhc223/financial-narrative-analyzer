@@ -115,6 +115,11 @@ Revenue:
   interpretation_hint: "Driven by volume or rate; check both."
 ```
 
-A variance is flagged as material only when it clears **both** the 5% relative threshold **and** the $10,000 absolute floor — so a large percentage swing on a tiny dollar base does not trigger commentary.
+P&L lines (Revenue, COGS, SG&A) are material only when they clear **both** tests, with thresholds set in the `materiality:` block of `semantic_registry.yaml`:
+
+1. The absolute % change vs prior is at least **10%**.
+2. The absolute dollar change is at least **1% of prior-period total revenue**.
+
+A line whose prior value is zero passes the % test automatically, so only the dollar test decides. Lines that flip sign are flagged with `sign_flip`. Balance sheet lines are not covered yet.
 
 **v3 — LLM narrative layer.** Formalize the boundary between the deterministic core and the model: the registry and computation produce a fully-decided set of facts and verdicts, and the model is given only the task of turning that structured object into readable prose.

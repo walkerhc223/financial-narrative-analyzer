@@ -9,8 +9,7 @@ into structured financial signals before narrative generation.
 def interpret_metrics(
     metrics,
     management_notes=None,
-    materiality_threshold_pct=0.05,
-    materiality_threshold_abs=10_000,
+    materiality_results=None,
     variance_results=None,
 ):
     """Interpret computed financial metrics into structured signals."""
@@ -19,6 +18,7 @@ def interpret_metrics(
         "unfavorable_signals": [],
         "supporting_signals": [],
         "material_signals": [],
+        "sign_flip_signals": [],
         "registry_classifications": {},
         "flagged_accounts": [],
         "causal_pattern": None,
@@ -28,12 +28,7 @@ def interpret_metrics(
 
     apply_directional_rules(metrics, interpretation)
     apply_relative_growth_rules(metrics, interpretation)
-    apply_materiality_rules(
-        metrics,
-        interpretation,
-        materiality_threshold_pct,
-        materiality_threshold_abs,
-    )
+    apply_materiality_rules(interpretation, materiality_results)
     apply_registry_classifications(variance_results, interpretation)
     apply_causal_pattern_rules(metrics, interpretation)
     determine_primary_headline_signal(metrics, interpretation)
@@ -120,55 +115,30 @@ def apply_relative_growth_rules(metrics, interpretation):
             )
 
 
-def apply_materiality_rules(
-    metrics,
-    interpretation,
-    materiality_threshold_pct,
-    materiality_threshold_abs,
-):
-    """Identify which signals are material enough to emphasize."""
-    metric_definitions = [
-        (
-            "Revenue",
-            metrics.get("revenue_change_abs"),
-            metrics.get("revenue_change_pct"),
-        ),
-        (
-            "Gross profit",
-            metrics.get("gross_profit_change_abs"),
-            metrics.get("gross_profit_change_pct"),
-        ),
-        (
-            "Operating expense",
-            metrics.get("operating_expense_change_abs"),
-            metrics.get("operating_expense_change_pct"),
-        ),
-        (
-            "Operating income",
-            metrics.get("operating_income_change_abs"),
-            metrics.get("operating_income_change_pct"),
-        ),
-    ]
+def apply_materiality_rules(interpretation, materiality_results):
+    """Identify which signals are material, using the decision engine's v2 rule."""
+    if not materiality_results:
+        return
 
-    for metric_name, abs_change, pct_change in metric_definitions:
-        if is_material(
-            abs_change,
-            pct_change,
-            materiality_threshold_pct,
-            materiality_threshold_abs,
-        ):
-            interpretation["material_signals"].append(metric_name)
+    # Maps account names to the signal names used in the narrative.
+    # Accounts not listed here (e.g. COGS) are skipped.
+    account_to_signal = {
+        "Revenue": "Revenue",
+        "Gross profit": "Gross profit",
+        "SG&A": "Operating expense",
+        "Operating income": "Operating income",
+    }
 
+    for account, result in materiality_results.items():
+        signal = account_to_signal.get(account)
+        if signal is None:
+            continue
 
-def is_material(abs_change, pct_change, threshold_pct, threshold_abs):
-    """Return True if a change is materially significant."""
-    if abs_change is not None and abs(abs_change) >= threshold_abs:
-        return True
-
-    if pct_change is not None and abs(pct_change) >= threshold_pct:
-        return True
-
-    return False
+        if result["material"]:
+            interpretation["material_signals"].append(signal)
+        # Sign flips are recorded for the narrative layer, whether or not the line is material.
+        if result["sign_flip"]:
+            interpretation["sign_flip_signals"].append(signal)
 
 
 def apply_registry_classifications(variance_results, interpretation):

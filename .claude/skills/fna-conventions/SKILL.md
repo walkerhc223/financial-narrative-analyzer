@@ -17,7 +17,7 @@ When writing or reviewing code, flag any instance where a later layer is doing a
 
 ## Materiality threshold
 
-Default materiality threshold is **1% of revenue**. Any variance or line-item change below this threshold is treated as immaterial by default and should not be surfaced as a narrative-worthy finding unless explicitly flagged otherwise (e.g., a small-dollar item that's qualitatively significant, like a new related-party transaction). Threshold logic should live in the decision layer, not be hardcoded inline in narrative prompts or computation functions.
+P&L materiality (v2) is defined in `semantic_registry.yaml` under `materiality:` and applied by `check_materiality()` in `decision_engine.py`. A line is material when its absolute % change vs prior is at least 10% **and** its absolute dollar change is at least 1% of prior-period total revenue. Balance sheet lines will later use 1% of prior total assets (not built yet). Any variance or line-item change below this threshold is treated as immaterial by default and should not be surfaced as a narrative-worthy finding unless explicitly flagged otherwise (e.g., a small-dollar item that's qualitatively significant, like a new related-party transaction). Threshold logic should live in the decision layer, not be hardcoded inline in narrative prompts or computation functions.
 
 ## YAML semantic registry
 

@@ -14,7 +14,7 @@ from computation import compute_metrics
 from interpretation import interpret_metrics
 from narrative import generate_narrative_sections
 from assembly import assemble_report
-from decision_engine import analyze_all
+from decision_engine import analyze_all, check_materiality
 
 
 def main():
@@ -56,11 +56,34 @@ def main():
     metrics = compute_metrics(input_data)
     variance_results = analyze_all(account_data)
 
+    # Derived lines are tested for materiality only. They aren't in the registry,
+    # so they stay out of analyze_all.
+    materiality_data = {
+        **account_data,
+        "Gross profit": {
+            "current": input_data["gross_profit_current"],
+            "prior": input_data["gross_profit_prior"],
+        },
+        "Operating income": {
+            "current": input_data["operating_income_current"],
+            "prior": input_data["operating_income_prior"],
+        },
+    }
+
+    # Materiality is measured against prior-period TOTAL revenue for every line.
+    materiality_results = {
+        account: check_materiality(
+            periods["current"],
+            periods["prior"],
+            input_data["revenue_prior"],
+        )
+        for account, periods in materiality_data.items()
+    }
+
     interpretation = interpret_metrics(
         metrics,
         management_notes=management_notes,
-        materiality_threshold_pct=0.05,
-        materiality_threshold_abs=10_000,
+        materiality_results=materiality_results,
         variance_results=variance_results,
     )
 
