@@ -108,11 +108,17 @@ line_items = [
 **v2 — Externalized account rules.** Move account rules into a YAML semantic registry so materiality thresholds, favorable/unfavorable direction, and interpretation hints can be edited without touching code:
 
 ```yaml
-Revenue:
-  favorable_when: increase
-  min_pct_threshold: 0.05     # 5% relative threshold
-  min_abs_threshold: 10000    # $10,000 absolute floor
-  interpretation_hint: "Driven by volume or rate; check both."
+materiality:
+  pct_change: 0.10            # 10% change vs prior
+  prior_revenue_share: 0.01   # 1% of prior-period total revenue
+
+accounts:
+  Revenue:
+    significant: true
+    favorable_when: increase
+    flag_proximity: 0.5       # FLAG at 50% of the materiality thresholds
+    category: income
+    interpretation_hint: "Top-line growth driver"
 ```
 
 P&L lines (Revenue, COGS, SG&A) are material only when they clear **both** tests, with thresholds set in the `materiality:` block of `semantic_registry.yaml`:
@@ -120,6 +126,6 @@ P&L lines (Revenue, COGS, SG&A) are material only when they clear **both** tests
 1. The absolute % change vs prior is at least **10%**.
 2. The absolute dollar change is at least **1% of prior-period total revenue**.
 
-A line whose prior value is zero passes the % test automatically, so only the dollar test decides. Lines that flip sign are flagged with `sign_flip`. Balance sheet lines are not covered yet.
+A line whose prior value is zero passes the % test automatically, so only the dollar test decides. Material lines are classified EXPLAIN. A line that misses materiality but reaches `flag_proximity` × either threshold is classified FLAG; anything else is IGNORE. Accounts carry no thresholds of their own. Lines that flip sign are flagged with `sign_flip`. Balance sheet lines are not covered yet.
 
 **v3 — LLM narrative layer.** Formalize the boundary between the deterministic core and the model: the registry and computation produce a fully-decided set of facts and verdicts, and the model is given only the task of turning that structured object into readable prose.

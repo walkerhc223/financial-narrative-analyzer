@@ -21,6 +21,13 @@ def test_registry_loads_expected_accounts():
     assert revenue_rule.category == "income"
 
 
+def test_account_rules_have_no_per_account_thresholds():
+    # Materiality comes only from the top-level materiality: block.
+    for rule in SEMANTIC_REGISTRY.values():
+        assert not hasattr(rule, "min_abs_threshold")
+        assert not hasattr(rule, "pct_threshold")
+
+
 def test_materiality_thresholds_load_from_yaml():
     # The v2 thresholds come from the YAML, not hardcoded numbers in the code.
     assert MATERIALITY_RULE.pct_change == 0.10
@@ -29,32 +36,73 @@ def test_materiality_thresholds_load_from_yaml():
 
 def test_analyze_variance_unknown_account_raises():
     with pytest.raises(ValueError):
-        analyze_variance("Utilities", current=15_000, prior=10_000)
+        analyze_variance("Utilities", current=15_000, prior=10_000, prior_total_revenue=1_000_000)
 
 
+# Classification thresholds come from the materiality: block (10% change, $ change >= 1% of
+# prior total revenue). With prior total revenue = 1,000,000 the dollar floor is $10,000.
 def test_analyze_variance_classifies_explain_flag_ignore():
-    # Revenue: well past both thresholds -> EXPLAIN
-    explain_result = analyze_variance("Revenue", current=120_000, prior=100_000)
+    # Revenue: 20% change and $20,000 clear both materiality tests -> EXPLAIN
+    explain_result = analyze_variance("Revenue", current=120_000, prior=100_000, prior_total_revenue=1_000_000)
     assert explain_result.classification == "EXPLAIN"
 
-    # SG&A: dollar change clears min_abs_threshold * flag_proximity (4000)
-    # but not the full 5000 threshold, and pct change stays under 10% -> FLAG
-    flag_result = analyze_variance("SG&A", current=54_500, prior=50_000)
+    # SG&A (flag_proximity 0.8): 9% change fails the 10% test and $4,500 fails the $10,000
+    # floor, but 9% clears the proximity pct bar (8%) -> FLAG
+    flag_result = analyze_variance("SG&A", current=54_500, prior=50_000, prior_total_revenue=1_000_000)
     assert flag_result.classification == "FLAG"
 
-    # SG&A: small dollar and pct change, below flag proximity -> IGNORE
-    ignore_result = analyze_variance("SG&A", current=50_100, prior=50_000)
+    # SG&A: 0.2% and $100 are below both proximity bars (8% and $8,000) -> IGNORE
+    ignore_result = analyze_variance("SG&A", current=50_100, prior=50_000, prior_total_revenue=1_000_000)
     assert ignore_result.classification == "IGNORE"
 
 
+def test_analyze_variance_flag_by_dollar_proximity():
+    # Revenue (flag_proximity 0.5): 2% change misses the 5% pct bar, but $6,000 clears
+    # the $5,000 dollar proximity bar -> FLAG
+    result = analyze_variance("Revenue", current=306_000, prior=300_000, prior_total_revenue=1_000_000)
+    assert result.classification == "FLAG"
+
+
+def test_analyze_variance_scales_with_prior_total_revenue():
+    # Same 12% / $6,000 line: material against a $400,000 revenue base (floor $4,000),
+    # not material against a $1,000,000 base (floor $10,000).
+    small_base = analyze_variance("COGS", current=56_000, prior=50_000, prior_total_revenue=400_000)
+    large_base = analyze_variance("COGS", current=56_000, prior=50_000, prior_total_revenue=1_000_000)
+    assert small_base.classification == "EXPLAIN"
+    assert large_base.classification == "FLAG"
+
+
 def test_analyze_variance_zero_prior():
-    assert analyze_variance("COGS", current=5_000, prior=0).classification == "EXPLAIN"
-    assert analyze_variance("COGS", current=0, prior=0).classification == "IGNORE"
+    # Prior = 0 routes through check_materiality: only the dollar test decides.
+    # With prior total revenue = 1,000,000 the floor is $10,000 (COGS proximity bar $5,000).
+    def classify(current):
+        return analyze_variance("COGS", current=current, prior=0, prior_total_revenue=1_000_000).classification
+
+    assert classify(15_000) == "EXPLAIN"
+    assert classify(5_000) == "FLAG"
+    assert classify(1_000) == "IGNORE"
+    assert classify(0) == "IGNORE"
 
 
 def test_analyze_all_rejects_unknown_account():
     with pytest.raises(ValueError):
         analyze_all({"Utilities": {"current": 15_000, "prior": 10_000}})
+
+
+def test_analyze_all_requires_revenue():
+    with pytest.raises(ValueError, match="Revenue"):
+        analyze_all({"COGS": {"current": 70_000, "prior": 68_000}})
+
+
+def test_analyze_all_uses_revenue_prior_as_materiality_base():
+    # Revenue prior = 1,000,000 -> $10,000 floor. COGS +12% but only +$6,000 -> FLAG, not EXPLAIN.
+    results = analyze_all(
+        {
+            "Revenue": {"current": 1_300_000, "prior": 1_000_000},
+            "COGS": {"current": 56_000, "prior": 50_000},
+        }
+    )
+    assert {r.account: r.classification for r in results} == {"Revenue": "EXPLAIN", "COGS": "FLAG"}
 
 
 def test_analyze_all_returns_result_per_account():

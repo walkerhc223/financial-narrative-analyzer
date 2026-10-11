@@ -16,8 +16,6 @@ _REGISTRY_PATH = Path(__file__).parent / "semantic_registry.yaml"
 class AccountRule:
     significant: bool
     favorable_when: FavorableWhen
-    min_abs_threshold: float
-    pct_threshold: float
     flag_proximity: float
     category: Category
     interpretation_hint: str
@@ -65,34 +63,40 @@ def _load_materiality(path: Path = _REGISTRY_PATH) -> MaterialityRule:
 MATERIALITY_RULE: MaterialityRule = _load_materiality()
 
 
-def _passes_explain_threshold(abs_change: float, abs_pct: float, rule: AccountRule) -> bool:
-    return abs_change >= rule.min_abs_threshold and abs_pct >= rule.pct_threshold
+def _passes_flag_proximity(
+    abs_change: float,
+    abs_pct: float | None,
+    prior_total_revenue: float,
+    rule: AccountRule,
+    materiality: MaterialityRule = MATERIALITY_RULE,
+) -> bool:
+    # Same thresholds as check_materiality(), scaled down by the account's flag_proximity.
+    dollar_floor = materiality.prior_revenue_share * prior_total_revenue
+    if abs_change >= dollar_floor * rule.flag_proximity:
+        return True
+    # A prior of zero has no % change, so only the dollar bar can flag it.
+    return abs_pct is not None and abs_pct >= materiality.pct_change * rule.flag_proximity
 
 
-def _passes_flag_proximity(abs_change: float, abs_pct: float, rule: AccountRule) -> bool:
-    return (
-        abs_change >= rule.min_abs_threshold * rule.flag_proximity
-        or abs_pct >= rule.pct_threshold * rule.flag_proximity
-    )
-
-
-def _classify(current: float, prior: float, dollar_change: float, pct_change: float | None, rule: AccountRule) -> Classification:
-    if prior == 0:
-        return "EXPLAIN" if current != 0 else "IGNORE"
-
-    abs_change = abs(dollar_change)
-    abs_pct = abs(pct_change)
-
-    if _passes_explain_threshold(abs_change, abs_pct, rule):
+def _classify(
+    current: float,
+    prior: float,
+    dollar_change: float,
+    pct_change: float | None,
+    prior_total_revenue: float,
+    rule: AccountRule,
+) -> Classification:
+    if check_materiality(current, prior, prior_total_revenue)["material"]:
         return "EXPLAIN"
 
-    if _passes_flag_proximity(abs_change, abs_pct, rule):
+    abs_pct = abs(pct_change) if pct_change is not None else None
+    if _passes_flag_proximity(abs(dollar_change), abs_pct, prior_total_revenue, rule):
         return "FLAG"
 
     return "IGNORE"
 
 
-def analyze_variance(account: str, current: float, prior: float) -> VarianceResult:
+def analyze_variance(account: str, current: float, prior: float, prior_total_revenue: float) -> VarianceResult:
     rule = SEMANTIC_REGISTRY.get(account)
     if rule is None:
         raise ValueError(f"No semantic rule found for account: '{account}'")
@@ -100,7 +104,7 @@ def analyze_variance(account: str, current: float, prior: float) -> VarianceResu
     dollar_change = current - prior
     pct_change = dollar_change / prior if prior != 0 else None
 
-    classification = _classify(current, prior, dollar_change, pct_change, rule)
+    classification = _classify(current, prior, dollar_change, pct_change, prior_total_revenue, rule)
 
     return VarianceResult(
         account=account,
@@ -168,10 +172,16 @@ def analyze_all(financials: dict[str, dict[str, float]]) -> list[VarianceResult]
             elif not isinstance(periods[key], (int, float)):
                 errors.append(f"'{account}.{key}': expected a number, got {type(periods[key]).__name__}")
 
+    # Materiality is measured against prior-period total revenue, so Revenue must be present.
+    if "Revenue" not in financials:
+        errors.append("'Revenue': required to measure materiality against prior-period total revenue")
+
     if errors:
         raise ValueError("Invalid input to analyze_all:\n" + "\n".join(f"  - {e}" for e in errors))
 
+    prior_total_revenue = financials["Revenue"]["prior"]
+
     return [
-        analyze_variance(account, periods["current"], periods["prior"])
+        analyze_variance(account, periods["current"], periods["prior"], prior_total_revenue)
         for account, periods in financials.items()
     ]
