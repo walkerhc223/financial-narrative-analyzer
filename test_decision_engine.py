@@ -72,6 +72,21 @@ def test_analyze_variance_scales_with_prior_total_revenue():
     assert large_base.classification == "FLAG"
 
 
+def test_analyze_variance_pct_change_sign_follows_direction_of_move():
+    # Loss of -50,000 improving to +20,000 is an increase, so pct_change is positive (+140%).
+    improving = analyze_variance("SG&A", current=20_000, prior=-50_000, prior_total_revenue=1_000_000)
+    assert improving.dollar_change == 70_000
+    assert improving.pct_change == pytest.approx(1.4)
+
+    # Loss deepening from -50,000 to -80,000 is a decrease (-60%).
+    worsening = analyze_variance("SG&A", current=-80_000, prior=-50_000, prior_total_revenue=1_000_000)
+    assert worsening.pct_change == pytest.approx(-0.6)
+
+    # Positive prior is unchanged: 100,000 -> 120,000 is +20%.
+    positive = analyze_variance("Revenue", current=120_000, prior=100_000, prior_total_revenue=1_000_000)
+    assert positive.pct_change == pytest.approx(0.2)
+
+
 def test_analyze_variance_zero_prior():
     # Prior = 0 routes through check_materiality: only the dollar test decides.
     # With prior total revenue = 1,000,000 the floor is $10,000 (COGS proximity bar $5,000).

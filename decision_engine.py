@@ -115,7 +115,8 @@ def analyze_variance(account: str, current: float, prior: float, prior_total_rev
         raise ValueError(f"No semantic rule found for account: '{account}'")
 
     dollar_change = current - prior
-    pct_change = dollar_change / prior if prior != 0 else None
+    # abs(prior) keeps the sign of the % change aligned with the direction of the move.
+    pct_change = dollar_change / abs(prior) if prior != 0 else None
 
     classification = _classify(current, prior, prior_total_revenue, rule)
 
