@@ -80,6 +80,7 @@ def test_analyze_variance_zero_prior():
 
     assert classify(15_000) == "EXPLAIN"
     assert classify(5_000) == "FLAG"
+    assert classify(4_999) == "IGNORE"  # just under the >= proximity bar
     assert classify(1_000) == "IGNORE"
     assert classify(0) == "IGNORE"
 
@@ -92,6 +93,18 @@ def test_analyze_all_rejects_unknown_account():
 def test_analyze_all_requires_revenue():
     with pytest.raises(ValueError, match="Revenue"):
         analyze_all({"COGS": {"current": 70_000, "prior": 68_000}})
+
+
+@pytest.mark.parametrize("revenue_prior", [0, -5_000])
+def test_analyze_all_rejects_non_positive_prior_revenue(revenue_prior):
+    # A zero or negative floor is meaningless; fail up front instead of misclassifying lines.
+    with pytest.raises(ValueError, match="Revenue.prior"):
+        analyze_all(
+            {
+                "Revenue": {"current": 120_000, "prior": revenue_prior},
+                "COGS": {"current": 70_000, "prior": 68_000},
+            }
+        )
 
 
 def test_analyze_all_uses_revenue_prior_as_materiality_base():

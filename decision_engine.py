@@ -63,34 +63,47 @@ def _load_materiality(path: Path = _REGISTRY_PATH) -> MaterialityRule:
 MATERIALITY_RULE: MaterialityRule = _load_materiality()
 
 
-def _passes_flag_proximity(
-    abs_change: float,
-    abs_pct: float | None,
-    prior_total_revenue: float,
-    rule: AccountRule,
-    materiality: MaterialityRule = MATERIALITY_RULE,
-) -> bool:
-    # Same thresholds as check_materiality(), scaled down by the account's flag_proximity.
-    dollar_floor = materiality.prior_revenue_share * prior_total_revenue
-    if abs_change >= dollar_floor * rule.flag_proximity:
-        return True
-    # A prior of zero has no % change, so only the dollar bar can flag it.
-    return abs_pct is not None and abs_pct >= materiality.pct_change * rule.flag_proximity
-
-
-def _classify(
+def _threshold_tests(
     current: float,
     prior: float,
-    dollar_change: float,
-    pct_change: float | None,
     prior_total_revenue: float,
-    rule: AccountRule,
-) -> Classification:
+    scale: float,
+    materiality: MaterialityRule = MATERIALITY_RULE,
+) -> tuple[bool | None, bool]:
+    """The one place the materiality thresholds are evaluated.
+
+    Returns (pct_ok, dollar_ok), with both thresholds multiplied by `scale`
+    (1 for materiality, flag_proximity for FLAG). pct_ok is None when the prior
+    is zero, since there is no % change; each caller decides what that means.
+    """
+    # The dollar test is a share of revenue, so zero or negative revenue makes it meaningless.
+    if prior_total_revenue <= 0:
+        raise ValueError(
+            f"Prior-period total revenue must be positive for materiality checks, got {prior_total_revenue}"
+        )
+
+    # Use absolute values for both tests, so a decrease counts the same as an increase.
+    dollar_change = abs(current - prior)
+
+    if prior == 0:
+        pct_ok = None
+    else:
+        # Divide by abs(prior) so a negative prior doesn't flip the sign of the % test.
+        pct_ok = dollar_change / abs(prior) >= materiality.pct_change * scale
+
+    dollar_ok = dollar_change >= materiality.prior_revenue_share * prior_total_revenue * scale
+
+    return pct_ok, dollar_ok
+
+
+def _classify(current: float, prior: float, prior_total_revenue: float, rule: AccountRule) -> Classification:
     if check_materiality(current, prior, prior_total_revenue)["material"]:
         return "EXPLAIN"
 
-    abs_pct = abs(pct_change) if pct_change is not None else None
-    if _passes_flag_proximity(abs(dollar_change), abs_pct, prior_total_revenue, rule):
+    # FLAG needs either test at flag_proximity x its threshold. With a zero prior (pct_ok is None)
+    # there is no % change, so the % test can't trigger a FLAG and only the dollar test can.
+    pct_ok, dollar_ok = _threshold_tests(current, prior, prior_total_revenue, rule.flag_proximity)
+    if pct_ok is True or dollar_ok:
         return "FLAG"
 
     return "IGNORE"
@@ -104,7 +117,7 @@ def analyze_variance(account: str, current: float, prior: float, prior_total_rev
     dollar_change = current - prior
     pct_change = dollar_change / prior if prior != 0 else None
 
-    classification = _classify(current, prior, dollar_change, pct_change, prior_total_revenue, rule)
+    classification = _classify(current, prior, prior_total_revenue, rule)
 
     return VarianceResult(
         account=account,
@@ -130,29 +143,16 @@ def check_materiality(
 
     Returns {"material": bool, "sign_flip": bool}.
     """
-    # The dollar test is a share of revenue, so zero or negative revenue makes it meaningless.
-    if prior_total_revenue <= 0:
-        raise ValueError(
-            f"Prior-period total revenue must be positive for materiality checks, got {prior_total_revenue}"
-        )
-
-    # Use absolute values for both tests, so a decrease counts the same as an increase.
-    dollar_change = abs(current - prior)
+    pct_ok, dollar_ok = _threshold_tests(current, prior, prior_total_revenue, scale=1, materiality=rule)
 
     # A prior of zero has no meaningful % change, so the % test passes automatically
     # and only the dollar test decides.
-    if prior == 0:
-        pct_passes = True
-    else:
-        # Divide by abs(prior) so a negative prior doesn't flip the sign of the % test.
-        pct_passes = dollar_change / abs(prior) >= rule.pct_change
-
-    dollar_passes = dollar_change >= rule.prior_revenue_share * prior_total_revenue
+    pct_passes = pct_ok is None or pct_ok
 
     # Opposite signs (e.g. a loss turning into a profit). The narrative layer needs to know.
     sign_flip = (current > 0 and prior < 0) or (current < 0 and prior > 0)
 
-    return {"material": pct_passes and dollar_passes, "sign_flip": sign_flip}
+    return {"material": pct_passes and dollar_ok, "sign_flip": sign_flip}
 
 
 def analyze_all(financials: dict[str, dict[str, float]]) -> list[VarianceResult]:
@@ -175,6 +175,10 @@ def analyze_all(financials: dict[str, dict[str, float]]) -> list[VarianceResult]
     # Materiality is measured against prior-period total revenue, so Revenue must be present.
     if "Revenue" not in financials:
         errors.append("'Revenue': required to measure materiality against prior-period total revenue")
+
+    revenue = financials.get("Revenue")
+    if isinstance(revenue, dict) and isinstance(revenue.get("prior"), (int, float)) and revenue["prior"] <= 0:
+        errors.append(f"'Revenue.prior': must be positive to measure materiality, got {revenue['prior']}")
 
     if errors:
         raise ValueError("Invalid input to analyze_all:\n" + "\n".join(f"  - {e}" for e in errors))

@@ -103,9 +103,9 @@ line_items = [
 
 ## Roadmap
 
-**v1 — Hardcoded rules.** Deterministic computation, materiality, and interpretation live in code. Narrative is generated deterministically from those conclusions. _(current)_
+**v1 — Hardcoded rules.** Deterministic computation, materiality, and interpretation live in code. Narrative is generated deterministically from those conclusions.
 
-**v2 — Externalized account rules.** Move account rules into a YAML semantic registry so materiality thresholds, favorable/unfavorable direction, and interpretation hints can be edited without touching code:
+**v2 — Externalized account rules.** _(current)_ Move account rules into a YAML semantic registry so materiality thresholds, favorable/unfavorable direction, and interpretation hints can be edited without touching code:
 
 ```yaml
 materiality:
@@ -126,6 +126,6 @@ P&L lines (Revenue, COGS, SG&A) are material only when they clear **both** tests
 1. The absolute % change vs prior is at least **10%**.
 2. The absolute dollar change is at least **1% of prior-period total revenue**.
 
-A line whose prior value is zero passes the % test automatically, so only the dollar test decides. Material lines are classified EXPLAIN. A line that misses materiality but reaches `flag_proximity` × either threshold is classified FLAG; anything else is IGNORE. Accounts carry no thresholds of their own. Lines that flip sign are flagged with `sign_flip`. Balance sheet lines are not covered yet.
+Material lines (both tests at full threshold) are classified EXPLAIN. Otherwise, a line that reaches `flag_proximity` × either threshold is classified FLAG, and anything else is IGNORE. With a zero prior there is no % change, so the % test neither blocks EXPLAIN nor triggers FLAG; only the dollar test decides. Accounts carry no thresholds of their own. Lines that flip sign are flagged with `sign_flip`. Balance sheet lines are not covered yet.
 
 **v3 — LLM narrative layer.** Formalize the boundary between the deterministic core and the model: the registry and computation produce a fully-decided set of facts and verdicts, and the model is given only the task of turning that structured object into readable prose.
