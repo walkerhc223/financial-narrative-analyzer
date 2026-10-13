@@ -31,22 +31,23 @@ def compute_metrics(data):
         data["operating_income_current"] - data["operating_income_prior"]
     )
 
-    # Percentage changes
+    # Percentage changes. Divide by abs(prior) so the sign follows the direction of the
+    # move even for a negative prior (e.g. a loss shrinking), matching analyze_variance.
     metrics["revenue_change_pct"] = safe_divide(
         metrics["revenue_change_abs"],
-        data["revenue_prior"],
+        abs(data["revenue_prior"]),
     )
     metrics["gross_profit_change_pct"] = safe_divide(
         metrics["gross_profit_change_abs"],
-        data["gross_profit_prior"],
+        abs(data["gross_profit_prior"]),
     )
     metrics["operating_expense_change_pct"] = safe_divide(
         metrics["operating_expense_change_abs"],
-        data["operating_expense_prior"],
+        abs(data["operating_expense_prior"]),
     )
     metrics["operating_income_change_pct"] = safe_divide(
         metrics["operating_income_change_abs"],
-        data["operating_income_prior"],
+        abs(data["operating_income_prior"]),
     )
 
     # Margins

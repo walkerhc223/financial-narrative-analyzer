@@ -73,12 +73,13 @@ def test_analyze_variance_scales_with_prior_total_revenue():
 
 
 def test_analyze_variance_pct_change_sign_follows_direction_of_move():
-    # Loss of -50,000 improving to +20,000 is an increase, so pct_change is positive (+140%).
+    # A negative SG&A balance (e.g. a reversal or credit) of -50,000 moving up to +20,000
+    # is an increase, so pct_change is positive (+140%).
     improving = analyze_variance("SG&A", current=20_000, prior=-50_000, prior_total_revenue=1_000_000)
     assert improving.dollar_change == 70_000
     assert improving.pct_change == pytest.approx(1.4)
 
-    # Loss deepening from -50,000 to -80,000 is a decrease (-60%).
+    # A negative SG&A balance moving further down, from -50,000 to -80,000, is a decrease (-60%).
     worsening = analyze_variance("SG&A", current=-80_000, prior=-50_000, prior_total_revenue=1_000_000)
     assert worsening.pct_change == pytest.approx(-0.6)
 

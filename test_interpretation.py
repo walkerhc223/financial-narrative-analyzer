@@ -1,3 +1,4 @@
+from computation import compute_metrics
 from decision_engine import check_materiality
 from interpretation import (
     apply_causal_pattern_rules,
@@ -53,6 +54,23 @@ def test_directional_and_relative_growth_rules(sample_metrics):
         "Gross profit growth outpaced revenue growth",
         "Improving operational efficiency",
     ]
+
+
+def test_improving_loss_is_improving_operational_efficiency(sample_input_data):
+    # Operating loss shrinking from -20 to -10 while revenue grows 20%.
+    data = {
+        **sample_input_data,
+        "revenue_prior": 100,
+        "revenue_current": 120,
+        "operating_income_prior": -20,
+        "operating_income_current": -10,
+    }
+    metrics = compute_metrics(data)
+    assert metrics["operating_income_change_pct"] == 0.5
+
+    interpretation = interpret_metrics(metrics)
+    assert "Improving operational efficiency" in interpretation["supporting_signals"]
+    assert "Weak profitability conversion" not in interpretation["supporting_signals"]
 
 
 def test_materiality_and_causal_pattern(sample_metrics, sample_input_data):

@@ -43,6 +43,27 @@ def test_operating_income_change():
     assert round(result["operating_income_change_pct"], 4) == 0.25
 
 
+def test_operating_income_pct_improving_loss_is_positive():
+    # A loss shrinking from -20 to -10 is an improvement, so the % change is positive.
+    data = {**sample_data, "operating_income_prior": -20, "operating_income_current": -10}
+    result = compute_metrics(data)
+    assert result["operating_income_change_abs"] == 10
+    assert result["operating_income_change_pct"] == 0.5
+
+
+def test_operating_income_pct_deepening_loss_is_negative():
+    data = {**sample_data, "operating_income_prior": -20, "operating_income_current": -30}
+    result = compute_metrics(data)
+    assert result["operating_income_change_abs"] == -10
+    assert result["operating_income_change_pct"] == -0.5
+
+
+def test_operating_income_pct_positive_prior_unchanged():
+    data = {**sample_data, "operating_income_prior": 120_000, "operating_income_current": 150_000}
+    result = compute_metrics(data)
+    assert result["operating_income_change_pct"] == 0.25
+
+
 def test_revenue_vs_opex_growth_gap():
     result = compute_metrics(sample_data)
     assert round(result["revenue_change_pct"], 4) == -0.0952
