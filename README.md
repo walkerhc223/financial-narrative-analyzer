@@ -63,7 +63,13 @@ git clone https://github.com/<your-username>/fna.git
 cd fna
 ```
 
-Pure Python standard library — nothing to install. Requires Python 3.
+Requires Python 3 and PyYAML, the only dependency:
+
+```bash
+pip install -r requirements.txt
+```
+
+The tests also need `pytest`.
 
 ## Usage
 
