@@ -151,3 +151,102 @@ def test_headline_signal_and_management_context(sample_metrics, sample_input_dat
     neither = {"material_signals": []}
     determine_primary_headline_signal({}, neither)
     assert neither["primary_headline_signal"] == "Performance was mixed during the period"
+
+
+# --- v2: every verdict comes from the registry ---
+
+
+def _registry_from_yaml_edits(tmp_path, edit):
+    """Copy the real YAML to tmp_path, apply `edit(raw)`, and load registries from the copy."""
+    import yaml
+
+    import decision_engine
+
+    raw = yaml.safe_load(decision_engine._REGISTRY_PATH.read_text())
+    edit(raw)
+    path = tmp_path / "registry.yaml"
+    path.write_text(yaml.safe_dump(raw))
+    return {
+        "accounts": decision_engine._load_registry(path),
+        "derived_lines": decision_engine._load_derived_lines(path),
+    }
+
+
+def test_line_verdicts_have_one_complete_record_per_line(sample_metrics, sample_input_data):
+    interpretation = interpret_metrics(
+        sample_metrics, materiality_results=sample_materiality_results(sample_input_data)
+    )
+    verdicts = interpretation["line_verdicts"]
+    assert list(verdicts) == [
+        "Revenue", "COGS", "SG&A", "Gross profit", "Operating income", "Gross margin", "Operating margin",
+    ]
+    fields = {
+        "current", "prior", "dollar_change", "pct_change", "direction", "favorable_when",
+        "verdict", "classification", "material", "sign_flip", "interpretation_hint",
+    }
+    assert all(set(record) == fields for record in verdicts.values())
+
+    assert verdicts["Revenue"]["verdict"] == "unfavorable"
+    assert verdicts["COGS"]["verdict"] == "favorable"  # 670,000 -> 590,000
+    assert verdicts["SG&A"]["verdict"] == "favorable"
+    assert verdicts["SG&A"]["material"] is True
+    assert verdicts["Gross margin"]["verdict"] == "favorable"
+    assert verdicts["Gross margin"]["classification"] is None
+    assert verdicts["Gross profit"]["classification"] is None
+
+
+def test_flipping_cogs_favorable_when_in_yaml_flips_its_verdict(sample_metrics, tmp_path):
+    assert interpret_metrics(sample_metrics)["line_verdicts"]["COGS"]["verdict"] == "favorable"
+
+    registry = _registry_from_yaml_edits(
+        tmp_path, lambda raw: raw["accounts"]["COGS"].update(favorable_when="increase")
+    )
+    verdicts = interpret_metrics(sample_metrics, registry=registry)["line_verdicts"]
+    assert verdicts["COGS"]["verdict"] == "unfavorable"
+
+
+def test_flipping_operating_income_favorable_when_in_yaml_flips_its_verdict(sample_metrics, tmp_path):
+    before = interpret_metrics(sample_metrics)
+    assert before["line_verdicts"]["Operating income"]["verdict"] == "favorable"
+    assert "Operating income increased" in before["favorable_signals"]
+
+    registry = _registry_from_yaml_edits(
+        tmp_path, lambda raw: raw["derived_lines"]["Operating income"].update(favorable_when="decrease")
+    )
+    after = interpret_metrics(sample_metrics, registry=registry)
+    assert after["line_verdicts"]["Operating income"]["verdict"] == "unfavorable"
+    assert "Operating income increased" in after["unfavorable_signals"]
+
+
+def test_sga_dollars_up_but_share_of_revenue_down_is_favorable(sample_input_data):
+    data = {
+        **sample_input_data,
+        "revenue_prior": 1_000_000,
+        "revenue_current": 1_200_000,
+        "operating_expense_prior": 200_000,    # 20.0% of revenue
+        "operating_expense_current": 210_000,  # 17.5% of revenue
+    }
+    interpretation = interpret_metrics(compute_metrics(data))
+
+    sga = interpretation["line_verdicts"]["SG&A"]
+    assert sga["dollar_change"] > 0
+    assert sga["verdict"] == "favorable"
+    # The string follows the direction of the dollars; the list follows the verdict.
+    assert "Operating expenses increased" in interpretation["favorable_signals"]
+
+
+def test_sga_verdict_is_undetermined_when_share_of_revenue_unknown(sample_input_data):
+    metrics = compute_metrics({**sample_input_data, "revenue_current": 0})
+    interpretation = interpret_metrics(metrics)
+    assert interpretation["line_verdicts"]["SG&A"]["verdict"] == "undetermined"
+    assert not any("Operating expenses" in s for s in
+                   interpretation["favorable_signals"] + interpretation["unfavorable_signals"])
+
+
+def test_unknown_favorable_when_in_yaml_is_rejected(tmp_path):
+    import pytest
+
+    with pytest.raises(ValueError, match="favorable_when"):
+        _registry_from_yaml_edits(
+            tmp_path, lambda raw: raw["accounts"]["SG&A"].update(favorable_when="depends")
+        )

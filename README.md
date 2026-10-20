@@ -119,7 +119,14 @@ accounts:
     flag_proximity: 0.5       # FLAG at 50% of the materiality thresholds
     category: income
     interpretation_hint: "Top-line growth driver"
+
+derived_lines:                # direction verdict only; no EXPLAIN/FLAG/IGNORE
+  Gross profit:
+    favorable_when: increase
+    interpretation_hint: "Revenue less COGS; what remains of sales to cover operating costs"
 ```
+
+SG&A is judged as a share of revenue (`favorable_when: lower_share_of_revenue`): it is favorable when it falls as a % of revenue, even if dollars rise.
 
 P&L lines (Revenue, COGS, SG&A) are material only when they clear **both** tests, with thresholds set in the `materiality:` block of `semantic_registry.yaml`:
 

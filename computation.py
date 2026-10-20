@@ -17,6 +17,19 @@ def compute_metrics(data):
     """Compute core financial metrics from raw input data."""
     metrics = {}
 
+    # Current and prior dollars per line, so each line can be reported as one record.
+    # COGS = revenue - gross profit.
+    for line in ("revenue", "gross_profit", "operating_expense", "operating_income"):
+        metrics[f"{line}_current"] = data[f"{line}_current"]
+        metrics[f"{line}_prior"] = data[f"{line}_prior"]
+    metrics["cogs_current"] = data["revenue_current"] - data["gross_profit_current"]
+    metrics["cogs_prior"] = data["revenue_prior"] - data["gross_profit_prior"]
+    metrics["cogs_change_abs"] = metrics["cogs_current"] - metrics["cogs_prior"]
+    metrics["cogs_change_pct"] = safe_divide(
+        metrics["cogs_change_abs"],
+        abs(metrics["cogs_prior"]),
+    )
+
     # Absolute changes
     metrics["revenue_change_abs"] = (
         data["revenue_current"] - data["revenue_prior"]

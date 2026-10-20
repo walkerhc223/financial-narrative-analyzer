@@ -25,7 +25,27 @@ accounts:
 
   SG&A:
     significant: false
-    favorable_when: depends
+    favorable_when: lower_share_of_revenue
     flag_proximity: 0.8
     category: opex
-    interpretation_hint: "Mixed fixed and semi-variable overhead; direction alone is not conclusive"
+    interpretation_hint: "Judged as a share of revenue: favorable when SG&A falls as a % of revenue, even if dollars rise."
+
+# Derived lines get a direction verdict only. They are not accounts, so they never enter
+# analyze_all and get no EXPLAIN/FLAG/IGNORE classification.
+derived_lines:
+
+  Gross profit:
+    favorable_when: increase
+    interpretation_hint: "Revenue less COGS; what remains of sales to cover operating costs"
+
+  Operating income:
+    favorable_when: increase
+    interpretation_hint: "Gross profit less operating expenses; the core earnings result of the period"
+
+  Gross margin:
+    favorable_when: increase
+    interpretation_hint: "Gross profit as a % of revenue; reflects pricing and direct-cost efficiency"
+
+  Operating margin:
+    favorable_when: increase
+    interpretation_hint: "Operating income as a % of revenue; reflects overall cost efficiency of operations"

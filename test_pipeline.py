@@ -168,3 +168,21 @@ def test_zero_current_revenue_margin_change():
     assert result["operating_margin_change"] is None
     assert result["operating_expense_ratio_change"] is None
     assert result["revenue_change_pct"] is not None
+
+
+def test_per_line_current_prior_and_cogs():
+    result = compute_metrics(sample_data)
+    assert result["revenue_current"] == 950_000
+    assert result["operating_expense_prior"] == 260_000
+    # COGS = revenue - gross profit: 1,050,000 - 380,000 -> 950,000 - 360,000
+    assert result["cogs_prior"] == 670_000
+    assert result["cogs_current"] == 590_000
+    assert result["cogs_change_abs"] == -80_000
+    assert round(result["cogs_change_pct"], 4) == -0.1194
+
+
+def test_cogs_pct_none_for_zero_prior():
+    data = {**sample_data, "revenue_prior": 380_000}  # prior COGS = 0
+    result = compute_metrics(data)
+    assert result["cogs_prior"] == 0
+    assert result["cogs_change_pct"] is None

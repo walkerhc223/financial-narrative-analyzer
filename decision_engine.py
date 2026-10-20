@@ -6,7 +6,9 @@ from pathlib import Path
 from typing import Literal
 
 Classification = Literal["EXPLAIN", "FLAG", "IGNORE"]
-FavorableWhen = Literal["increase", "decrease", "depends"]
+FavorableWhen = Literal["increase", "decrease", "lower_share_of_revenue"]
+Verdict = Literal["favorable", "unfavorable", "flat", "undetermined"]
+_VALID_FAVORABLE_WHEN = ("increase", "decrease", "lower_share_of_revenue")
 Category = Literal["income", "expense", "opex"]
 
 _REGISTRY_PATH = Path(__file__).parent / "semantic_registry.yaml"
@@ -18,6 +20,12 @@ class AccountRule:
     favorable_when: FavorableWhen
     flag_proximity: float
     category: Category
+    interpretation_hint: str
+
+
+@dataclass
+class DerivedLineRule:
+    favorable_when: FavorableWhen
     interpretation_hint: str
 
 
@@ -41,16 +49,53 @@ class VarianceResult:
     significant: bool
 
 
+def _check_favorable_when(name: str, value: str) -> None:
+    if value not in _VALID_FAVORABLE_WHEN:
+        raise ValueError(f"'{name}': unknown favorable_when '{value}'")
+
+
 def _load_registry(path: Path = _REGISTRY_PATH) -> dict[str, AccountRule]:
     with open(path, "r") as f:
         raw = yaml.safe_load(f)
-    return {
+    rules = {
         name: AccountRule(**fields)
         for name, fields in raw["accounts"].items()
     }
+    for name, rule in rules.items():
+        _check_favorable_when(name, rule.favorable_when)
+    return rules
 
 
 SEMANTIC_REGISTRY: dict[str, AccountRule] = _load_registry()
+
+
+def _load_derived_lines(path: Path = _REGISTRY_PATH) -> dict[str, DerivedLineRule]:
+    with open(path, "r") as f:
+        raw = yaml.safe_load(f)
+    rules = {
+        name: DerivedLineRule(**fields)
+        for name, fields in raw["derived_lines"].items()
+    }
+    for name, rule in rules.items():
+        _check_favorable_when(name, rule.favorable_when)
+    return rules
+
+
+DERIVED_LINES: dict[str, DerivedLineRule] = _load_derived_lines()
+
+
+def directional_verdict(favorable_when: str, change: float | None) -> Verdict:
+    """Turn a registry favorable_when plus a movement into a verdict.
+
+    For "lower_share_of_revenue", `change` is the change in the line's share of revenue.
+    """
+    _check_favorable_when("favorable_when", favorable_when)
+    if change is None:
+        return "undetermined"
+    if change == 0:
+        return "flat"
+    favorable_if_up = favorable_when == "increase"
+    return "favorable" if (change > 0) == favorable_if_up else "unfavorable"
 
 
 def _load_materiality(path: Path = _REGISTRY_PATH) -> MaterialityRule:

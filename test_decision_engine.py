@@ -1,11 +1,13 @@
 import pytest
 
 from decision_engine import (
+    DERIVED_LINES,
     MATERIALITY_RULE,
     SEMANTIC_REGISTRY,
     analyze_all,
     analyze_variance,
     check_materiality,
+    directional_verdict,
 )
 
 
@@ -213,3 +215,34 @@ def test_materiality_revenue_tests_against_its_own_prior():
         prior_total_revenue=1_150_000,
     )
     assert result == {"material": False, "sign_flip": False}
+
+
+def test_derived_lines_load_from_yaml_and_stay_out_of_accounts():
+    assert set(DERIVED_LINES) == {"Gross profit", "Operating income", "Gross margin", "Operating margin"}
+    assert all(rule.favorable_when == "increase" for rule in DERIVED_LINES.values())
+    assert not set(DERIVED_LINES) & set(SEMANTIC_REGISTRY)
+    assert SEMANTIC_REGISTRY["SG&A"].favorable_when == "lower_share_of_revenue"
+
+
+@pytest.mark.parametrize(
+    "favorable_when, change, expected",
+    [
+        ("increase", 5, "favorable"),
+        ("increase", -5, "unfavorable"),
+        ("decrease", 5, "unfavorable"),
+        ("decrease", -5, "favorable"),
+        ("lower_share_of_revenue", -0.01, "favorable"),
+        ("lower_share_of_revenue", 0.01, "unfavorable"),
+        ("increase", 0, "flat"),
+        ("lower_share_of_revenue", 0, "flat"),
+        ("increase", None, "undetermined"),
+        ("lower_share_of_revenue", None, "undetermined"),
+    ],
+)
+def test_directional_verdict(favorable_when, change, expected):
+    assert directional_verdict(favorable_when, change) == expected
+
+
+def test_directional_verdict_rejects_unknown_rule():
+    with pytest.raises(ValueError):
+        directional_verdict("depends", 1)

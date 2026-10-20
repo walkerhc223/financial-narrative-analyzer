@@ -5,12 +5,15 @@ This module is responsible for converting computed financial metrics
 into structured financial signals before narrative generation.
 """
 
+import decision_engine
+
 
 def interpret_metrics(
     metrics,
     management_notes=None,
     materiality_results=None,
     variance_results=None,
+    registry=None,
 ):
     """Interpret computed financial metrics into structured signals."""
     interpretation = {
@@ -19,6 +22,7 @@ def interpret_metrics(
         "supporting_signals": [],
         "material_signals": [],
         "sign_flip_signals": [],
+        "line_verdicts": {},
         "registry_classifications": {},
         "flagged_accounts": [],
         "causal_pattern": None,
@@ -26,7 +30,10 @@ def interpret_metrics(
         "management_context_usage": None,
     }
 
-    apply_directional_rules(metrics, interpretation)
+    interpretation["line_verdicts"] = build_line_verdicts(
+        metrics, registry, materiality_results, variance_results
+    )
+    apply_directional_rules(interpretation)
     apply_relative_growth_rules(metrics, interpretation)
     apply_materiality_rules(interpretation, materiality_results)
     apply_registry_classifications(variance_results, interpretation)
@@ -37,41 +44,124 @@ def interpret_metrics(
     return interpretation
 
 
-def apply_directional_rules(metrics, interpretation):
-    """Classify basic directional changes as favorable or unfavorable."""
-    if metrics["revenue_change_abs"] > 0:
-        interpretation["favorable_signals"].append("Revenue increased")
-    elif metrics["revenue_change_abs"] < 0:
-        interpretation["unfavorable_signals"].append("Revenue decreased")
+# Wiring from each reported line to its metric keys and signal strings. Verdicts are NOT
+# decided here: favorable_when comes from the registry. `prefix` is None for ratio lines,
+# which use `current`/`prior`/`change` metric keys directly. `signals` is (up, down).
+_LINES = [
+    {"name": "Revenue", "prefix": "revenue", "signals": ("Revenue increased", "Revenue decreased")},
+    {"name": "COGS", "prefix": "cogs", "signals": None},
+    {
+        "name": "SG&A",
+        "prefix": "operating_expense",
+        "share_metric": "operating_expense_ratio_change",
+        "signals": ("Operating expenses increased", "Operating expenses decreased"),
+    },
+    {"name": "Gross profit", "prefix": "gross_profit", "signals": ("Gross profit increased", "Gross profit decreased")},
+    {
+        "name": "Operating income",
+        "prefix": "operating_income",
+        "signals": ("Operating income increased", "Operating income decreased"),
+    },
+    {
+        "name": "Gross margin",
+        "ratio": "gross_margin",
+        "signals": ("Gross margin expanded", "Gross margin compressed"),
+    },
+    {
+        "name": "Operating margin",
+        "ratio": "operating_margin",
+        "signals": ("Operating margin expanded", "Operating margin compressed"),
+    },
+]
 
-    if metrics["gross_profit_change_abs"] > 0:
-        interpretation["favorable_signals"].append("Gross profit increased")
-    elif metrics["gross_profit_change_abs"] < 0:
-        interpretation["unfavorable_signals"].append("Gross profit decreased")
+# The order signal strings have always been emitted in.
+_SIGNAL_ORDER = [
+    "Revenue",
+    "Gross profit",
+    "SG&A",
+    "Operating income",
+    "Gross margin",
+    "Operating margin",
+]
 
-    if metrics["operating_expense_change_abs"] > 0:
-        interpretation["unfavorable_signals"].append("Operating expenses increased")
-    elif metrics["operating_expense_change_abs"] < 0:
-        interpretation["favorable_signals"].append("Operating expenses decreased")
 
-    if metrics["operating_income_change_abs"] > 0:
-        interpretation["favorable_signals"].append("Operating income increased")
-    elif metrics["operating_income_change_abs"] < 0:
-        interpretation["unfavorable_signals"].append("Operating income decreased")
+def _default_registry():
+    return {"accounts": decision_engine.SEMANTIC_REGISTRY, "derived_lines": decision_engine.DERIVED_LINES}
 
-    gross_margin_change = metrics.get("gross_margin_change")
-    if gross_margin_change is not None:
-        if gross_margin_change > 0:
-            interpretation["favorable_signals"].append("Gross margin expanded")
-        elif gross_margin_change < 0:
-            interpretation["unfavorable_signals"].append("Gross margin compressed")
 
-    operating_margin_change = metrics.get("operating_margin_change")
-    if operating_margin_change is not None:
-        if operating_margin_change > 0:
-            interpretation["favorable_signals"].append("Operating margin expanded")
-        elif operating_margin_change < 0:
-            interpretation["unfavorable_signals"].append("Operating margin compressed")
+def _direction(change):
+    if change is None:
+        return None
+    if change > 0:
+        return "up"
+    if change < 0:
+        return "down"
+    return "flat"
+
+
+def build_line_verdicts(metrics, registry=None, materiality_results=None, variance_results=None):
+    """Build one complete record per reported line; every verdict comes from the registry."""
+    registry = registry or _default_registry()
+    materiality_results = materiality_results or {}
+    classifications = {r.account: r.classification for r in (variance_results or [])}
+
+    records = {}
+    for line in _LINES:
+        name = line["name"]
+        rule = registry["accounts"].get(name) or registry["derived_lines"][name]
+
+        if "ratio" in line:
+            ratio = line["ratio"]
+            current = metrics.get(f"{ratio}_current")
+            prior = metrics.get(f"{ratio}_prior")
+            dollar_change = metrics.get(f"{ratio}_change")
+            pct_change = None
+        else:
+            prefix = line["prefix"]
+            current = metrics.get(f"{prefix}_current")
+            prior = metrics.get(f"{prefix}_prior")
+            dollar_change = metrics.get(f"{prefix}_change_abs")
+            pct_change = metrics.get(f"{prefix}_change_pct")
+
+        if rule.favorable_when == "lower_share_of_revenue":
+            if "share_metric" not in line:
+                raise ValueError(f"'{name}': no share-of-revenue metric for favorable_when 'lower_share_of_revenue'")
+            verdict_change = metrics.get(line["share_metric"])
+        else:
+            verdict_change = dollar_change
+
+        materiality = materiality_results.get(name)
+        records[name] = {
+            "current": current,
+            "prior": prior,
+            "dollar_change": dollar_change,
+            "pct_change": pct_change,
+            "direction": _direction(dollar_change),
+            "favorable_when": rule.favorable_when,
+            "verdict": decision_engine.directional_verdict(rule.favorable_when, verdict_change),
+            "classification": classifications.get(name),
+            "material": materiality["material"] if materiality else None,
+            "sign_flip": materiality["sign_flip"] if materiality else None,
+            "interpretation_hint": rule.interpretation_hint,
+        }
+    return records
+
+
+def apply_directional_rules(interpretation):
+    """Derive the favorable/unfavorable signal lists from line_verdicts."""
+    line_verdicts = interpretation["line_verdicts"]
+
+    signals = {line["name"]: line["signals"] for line in _LINES}
+    for name in _SIGNAL_ORDER:
+        record = line_verdicts[name]
+        if record["direction"] not in ("up", "down"):
+            continue
+        up, down = signals[name]
+        text = up if record["direction"] == "up" else down
+        if record["verdict"] == "favorable":
+            interpretation["favorable_signals"].append(text)
+        elif record["verdict"] == "unfavorable":
+            interpretation["unfavorable_signals"].append(text)
 
 
 def apply_relative_growth_rules(metrics, interpretation):
