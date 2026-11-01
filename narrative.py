@@ -31,6 +31,12 @@ def describe_direction(value, positive_word="increased", negative_word="decrease
     return "was flat"
 
 
+def line_verdict(interpretation, line):
+    """Return the registry-driven verdict for a reported line."""
+    record = interpretation.get("line_verdicts", {}).get(line)
+    return record["verdict"] if record else "undetermined"
+
+
 def clean_management_context(interpretation):
     """Return cleaner management context text if available."""
     context = interpretation.get("management_context_usage")
@@ -62,7 +68,7 @@ def generate_executive_summary(data, metrics, interpretation):
 
     sentence_1 = (
         f"{company_name} reported {reporting_period} results versus "
-        f"{comparison_period}, with revenue {revenue_direction} and operating "
+        f"{comparison_period}: revenue {revenue_direction} and operating "
         f"income {operating_income_direction}."
     )
 
@@ -82,19 +88,21 @@ def generate_revenue_commentary(data, metrics, interpretation):
     if revenue_change_abs is None or revenue_change_pct is None:
         return "Revenue commentary could not be generated due to incomplete data."
 
-    if revenue_change_abs > 0:
-        driver_text = "providing a favorable top-line contribution to the period"
-    elif revenue_change_abs < 0:
-        driver_text = "creating pressure on overall performance"
-    else:
-        driver_text = "resulting in a neutral top-line impact"
+    judgment = {
+        "favorable": "This provided a favorable top-line contribution to the period.",
+        "unfavorable": "This created pressure on overall performance.",
+        "flat": "This resulted in a neutral top-line impact.",
+    }.get(line_verdict(interpretation, "Revenue"))
 
-    return (
+    commentary = (
         f"Revenue {direction} from {format_currency(data['revenue_prior'])} "
         f"to {format_currency(data['revenue_current'])}, a change of "
         f"{format_currency(abs(revenue_change_abs))} or "
-        f"{format_percent(abs(revenue_change_pct))}. This {driver_text}."
+        f"{format_percent(abs(revenue_change_pct))}."
     )
+    if judgment:
+        commentary += f" {judgment}"
+    return commentary
 
 
 def generate_gross_profit_commentary(data, metrics, interpretation):
@@ -117,26 +125,19 @@ def generate_gross_profit_commentary(data, metrics, interpretation):
     )
 
     if gross_margin_change is not None:
-        if gross_margin_change > 0:
-            margin_text = (
-                f" Gross margin improved from "
-                f"{format_percent(metrics['gross_margin_prior'])} to "
-                f"{format_percent(metrics['gross_margin_current'])}, indicating "
-                f"stronger profitability at the gross level."
-            )
-        elif gross_margin_change < 0:
-            margin_text = (
-                f" Gross margin declined from "
-                f"{format_percent(metrics['gross_margin_prior'])} to "
-                f"{format_percent(metrics['gross_margin_current'])}, indicating "
-                f"pressure on profitability at the gross level."
-            )
+        verdict = line_verdict(interpretation, "Gross margin")
+        prior = format_percent(metrics["gross_margin_prior"])
+        current = format_percent(metrics["gross_margin_current"])
+        if verdict == "flat" or gross_margin_change == 0:
+            commentary += f" Gross margin was unchanged at {current}."
         else:
-            margin_text = (
-                f" Gross margin was unchanged at "
-                f"{format_percent(metrics['gross_margin_current'])}."
-            )
-        commentary += margin_text
+            word = "improved" if gross_margin_change > 0 else "declined"
+            commentary += f" Gross margin {word} from {prior} to {current}"
+            clause = {
+                "favorable": "stronger profitability at the gross level",
+                "unfavorable": "pressure on profitability at the gross level",
+            }.get(verdict)
+            commentary += f", indicating {clause}." if clause else "."
 
     return commentary
 
@@ -146,7 +147,6 @@ def generate_operating_expense_commentary(data, metrics, interpretation):
     operating_expense_change_abs = metrics.get("operating_expense_change_abs")
     operating_expense_change_pct = metrics.get("operating_expense_change_pct")
     context = clean_management_context(interpretation)
-    supporting_signals = interpretation.get("supporting_signals", [])
 
     if operating_expense_change_abs is None or operating_expense_change_pct is None:
         return (
@@ -167,13 +167,18 @@ def generate_operating_expense_commentary(data, metrics, interpretation):
         f"{format_percent(abs(operating_expense_change_pct))}."
     )
 
-    if "Cost pressure from expense growth outpacing revenue" in supporting_signals:
-        commentary += (
-            " Expense growth outpaced revenue growth, which created pressure on "
+    judgment = {
+        "favorable": (
+            "Operating expenses fell as a share of revenue, supporting cost discipline."
+        ),
+        "unfavorable": (
+            "Expense growth outpaced revenue growth, which created pressure on "
             "profitability."
-        )
-    elif operating_expense_change_abs < 0:
-        commentary += " Lower operating expenses supported improved cost discipline."
+        ),
+        "flat": "Operating expenses held steady as a share of revenue.",
+    }.get(line_verdict(interpretation, "SG&A"))
+    if judgment:
+        commentary += f" {judgment}"
 
     if context:
         commentary += f" Management noted that {context[0].lower() + context[1:]}"
@@ -198,15 +203,15 @@ def generate_operating_income_conclusion(data, metrics, interpretation):
         negative_word="decreased",
     )
 
-    if operating_income_change_abs > 0:
-        implication = "This indicates stronger profitability during the period."
-    elif operating_income_change_abs < 0:
-        implication = (
+    implication = {
+        "favorable": "This indicates stronger profitability during the period.",
+        "unfavorable": (
             "This indicates that cost and margin pressures more than offset any "
             "top-line benefit."
-        )
-    else:
-        implication = "This indicates relatively stable profitability during the period."
+        ),
+        "flat": "This indicates relatively stable profitability during the period.",
+    }.get(line_verdict(interpretation, "Operating income"))
+    implication_text = f"{implication} " if implication else ""
 
     return (
         f"Operating income {direction} from "
@@ -214,7 +219,7 @@ def generate_operating_income_conclusion(data, metrics, interpretation):
         f"{format_currency(data['operating_income_current'])}, a change of "
         f"{format_currency(abs(operating_income_change_abs))} or "
         f"{format_percent(abs(operating_income_change_pct))}. "
-        f"{implication} The overall pattern was {causal_pattern.lower()}."
+        f"{implication_text}The overall pattern was {causal_pattern.lower()}."
     )
 
 

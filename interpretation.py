@@ -246,7 +246,6 @@ def apply_causal_pattern_rules(metrics, interpretation):
     """Detect high-level business performance patterns."""
     revenue_change_abs = metrics.get("revenue_change_abs")
     operating_income_change_abs = metrics.get("operating_income_change_abs")
-    gross_margin_change = metrics.get("gross_margin_change")
     operating_expense_change_pct = metrics.get("operating_expense_change_pct")
     revenue_change_pct = metrics.get("revenue_change_pct")
 
@@ -265,7 +264,7 @@ def apply_causal_pattern_rules(metrics, interpretation):
     else:
         interpretation["causal_pattern"] = "Mixed performance pattern"
 
-    if gross_margin_change is not None and gross_margin_change < 0:
+    if interpretation["line_verdicts"]["Gross margin"]["verdict"] == "unfavorable":
         interpretation["causal_pattern"] += " with gross margin pressure"
 
     if (
